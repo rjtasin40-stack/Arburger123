@@ -3,52 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAR Premium - No App Needed</title>
+    <title>WebAR Pro - Markerless Engine</title>
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
     
     <style>
         :root { --accent: #007aff; --bg: #050505; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; text-align: center; }
-        .admin-box { max-width: 450px; margin: 50px auto; padding: 30px; background: #111; border-radius: 20px; border: 1px solid #333; }
-        input { width: 100%; padding: 15px; margin: 10px 0; background: #222; border: 1px solid #444; color: white; border-radius: 10px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 18px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
-        #link-wrap { display: none; margin-top: 25px; padding: 20px; background: #1c1c1e; border-radius: 15px; border: 1px dashed var(--accent); }
-        #ar-link { color: var(--accent); word-break: break-all; font-size: 14px; display: block; margin: 10px 0; }
+        .container { max-width: 450px; margin: 40px auto; padding: 25px; background: #111; border-radius: 20px; border: 1px solid #333; }
+        input { width: 100%; padding: 15px; margin: 10px 0; background: #222; border: 1px solid #444; color: white; border-radius: 10px; box-sizing: border-box; outline: none; }
+        .btn { width: 100%; padding: 18px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; transition: 0.3s; }
+        .btn:hover { background: #005ecb; }
+        #link-section { display: none; margin-top: 25px; padding: 15px; background: #1c1c1e; border-radius: 15px; border: 1px dashed var(--accent); }
+        #ar-link { color: var(--accent); word-break: break-all; font-size: 13px; display: block; margin: 10px 0; }
         
+        /* Viewport Styles for direct AR */
         model-viewer {
             width: 100%;
-            height: 90vh;
+            height: 100vh;
             background-color: #000;
         }
-        .ar-btn {
-            background-color: var(--accent);
-            padding: 15px 30px;
+        .ar-launch-btn {
+            background: var(--accent);
+            color: white;
+            padding: 16px 40px;
             border-radius: 50px;
             border: none;
-            color: white;
-            font-weight: bold;
             position: absolute;
-            bottom: 50px;
+            bottom: 60px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 100;
+            font-weight: bold;
+            font-size: 18px;
+            box-shadow: 0 10px 20px rgba(0,122,255,0.3);
+            z-index: 999;
         }
     </style>
 </head>
 <body>
 
-<div id="setup-ui">
-    <div class="admin-box">
-        <h2 style="color:var(--accent)">MyWebAR Pro Engine</h2>
-        <input type="text" id="pname" placeholder="Project Name">
-        <input type="file" id="pfile" accept=".glb">
-        <button class="btn" onclick="startPublish()">Generate AR Link</button>
-        <div id="status" style="margin-top: 15px; font-size: 13px;">Ready to upload</div>
+<div id="admin-panel">
+    <div class="container">
+        <h2 style="color:var(--accent)">World AR Pro Engine</h2>
+        <p style="font-size: 13px; opacity: 0.6;">No Marker, No App - Direct Web Experience</p>
+        
+        <input type="text" id="p-name" placeholder="Project Title">
+        <input type="file" id="p-file" accept=".glb">
+        
+        <button class="btn" onclick="uploadToCloud()">Publish AR Link</button>
+        <div id="status" style="margin-top: 15px; font-size: 13px;">Ready</div>
 
-        <div id="link-wrap">
-            <p style="font-weight:bold;">Project Link:</p>
+        <div id="link-section">
+            <p style="font-weight:bold; margin-bottom:5px;">Direct Share Link:</p>
             <span id="ar-link"></span>
-            <button class="btn" style="background:#28a745" onclick="copyLink()">Copy Link</button>
+            <button class="btn" style="background:#28a745" onclick="copyLink()">Copy AR Link</button>
         </div>
     </div>
 </div>
@@ -57,14 +64,14 @@
     const CLOUD_NAME = "dgn3gfiaf"; 
     const PRESET = "my_ar_preset"; 
 
-    async function startPublish() {
-        const file = document.getElementById('pfile').files[0];
-        const name = document.getElementById('pname').value;
+    async function uploadToCloud() {
+        const file = document.getElementById('p-file').files[0];
+        const name = document.getElementById('p-name').value;
         const status = document.getElementById('status');
         
-        if(!file || !name) return alert("Please fill all fields");
+        if(!file || !name) return alert("Please provide both name and file");
 
-        status.innerText = "⏳ Uploading to Cloud...";
+        status.innerHTML = "⏳ <span style='color:var(--accent)'>Uploading to Cloud Server...</span>";
         const formData = new FormData();
         formData.append('file', file);
         formData.append('upload_preset', PRESET);
@@ -76,34 +83,42 @@
             const data = await res.json();
             
             if(data.secure_url) {
-                const finalLink = window.location.origin + window.location.pathname + "?view=" + encodeURIComponent(data.secure_url);
-                status.innerHTML = "<b style='color:#28a745'>✅ Published!</b>";
-                document.getElementById('link-wrap').style.display = "block";
-                document.getElementById('ar-link').innerText = finalLink;
+                const finalUrl = window.location.origin + window.location.pathname + "?view=" + encodeURIComponent(data.secure_url);
+                status.innerHTML = "<b style='color:#28a745'>✅ Success! Your AR is live.</b>";
+                document.getElementById('link-section').style.display = "block";
+                document.getElementById('ar-link').innerText = finalUrl;
             }
-        } catch(e) { status.innerText = "❌ Upload Failed"; }
+        } catch(e) { status.innerText = "❌ Upload Failed. Check Connection."; }
     }
 
     function copyLink() {
         navigator.clipboard.writeText(document.getElementById('ar-link').innerText);
-        alert("Link Copied!");
+        alert("Link Copied to Clipboard!");
     }
 
-    // AR VIEWER LOGIC (The MyWebAR Style Way)
+    // DIRECT WORLD TRACKING LOGIC (MyWebAR Style)
     const urlParams = new URLSearchParams(window.location.search);
-    const modelUrl = urlParams.get('view');
+    const modelSrc = urlParams.get('view');
 
-    if(modelUrl) {
-        document.getElementById('setup-ui').style.display = 'none';
+    if(modelSrc) {
+        document.getElementById('admin-panel').style.display = 'none';
         document.body.innerHTML = `
             <model-viewer 
-                src="${modelUrl}" 
+                src="${modelSrc}" 
                 ar 
-                ar-modes="webxr scene-viewer quick-look" 
+                ar-modes="scene-viewer quick-look webxr" 
                 camera-controls 
                 auto-rotate 
-                shadow-intensity="1">
-                <button slot="ar-button" class="ar-btn">👋 VIEW IN YOUR SPACE</button>
+                ar-placement="floor"
+                shadow-intensity="1"
+                environment-image="neutral"
+                exposure="1">
+                <button slot="ar-button" class="ar-launch-btn">
+                    START AR VIEW
+                </button>
+                <div style="position:absolute; top:20px; width:100%; color:white; font-size:12px; opacity:0.5;">
+                    3D Preview Mode (Touch to Rotate)
+                </div>
             </model-viewer>
         `;
     }
