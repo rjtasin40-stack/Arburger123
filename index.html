@@ -2,100 +2,77 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Slam Engine - Native WebXR</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Universal WebAR - Final Fix</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     
     <style>
-        body { margin: 0; background: #000; color: white; font-family: sans-serif; overflow: hidden; }
-        #launcher { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #111; z-index: 100; }
-        .card { background: #1a1a1c; padding: 40px; border-radius: 20px; text-align: center; border: 1px solid #333; max-width: 320px; }
-        .btn { background: #007aff; color: white; padding: 18px 30px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #0a0a0b; z-index: 100; }
+        .box { background: #161618; padding: 40px; border-radius: 25px; text-align: center; border: 1px solid #333; width: 80%; max-width: 350px; }
+        .btn { background: #007aff; color: white; padding: 20px; border: none; border-radius: 15px; font-weight: bold; width: 100%; font-size: 16px; cursor: pointer; box-shadow: 0 10px 20px rgba(0,122,255,0.3); }
+        #instructions { position: fixed; bottom: 20px; width: 100%; text-align: center; color: white; z-index: 10; display: none; }
+        #instructions p { background: rgba(0,0,0,0.7); display: inline-block; padding: 10px 20px; border-radius: 20px; font-size: 13px; }
     </style>
 </head>
 <body>
 
-<div id="launcher">
-    <div class="card">
-        <h2 id="name-tag">AR Experience</h2>
-        <p style="font-size: 14px; opacity: 0.7;">বাটনে ক্লিক করলে সরাসরি ক্যামেরা খুলবে। মেঝে শনাক্ত করতে ফোনটি আস্তে ঘোরান।</p>
-        <button class="btn" onclick="activateAR()">START AR ENGINE</button>
+<div id="overlay">
+    <div class="box">
+        <h2 style="color:#007aff; margin-top:0;">AR Experience</h2>
+        <p style="color:#888; font-size:14px; margin-bottom:25px;">বাটনে ক্লিক করলে সরাসরি ক্যামেরা ওপেন হবে। কোনো ৩ডি ভাসমান প্রিভিউ আসবে না।</p>
+        <button class="btn" onclick="startAR()">START CAMERA</button>
     </div>
 </div>
 
+<div id="instructions"><p>ফোনটি চারপাশে ঘোরান মডেলটি দেখার জন্য</p></div>
+
 <script>
     const params = new URLSearchParams(window.location.search);
-    const modelUrl = params.get('m');
-    const modelName = params.get('n');
-    if(modelName) document.getElementById('name-tag').innerText = modelName;
+    const modelUrl = params.get('view');
 
-    async function activateAR() {
-        // এই ফাংশনটি সরাসরি ফোনের Native AR মোড কল করবে
-        if (navigator.xr) {
-            const isSupported = await navigator.xr.isSessionSupported('immersive-ar');
-            if (isSupported) {
-                document.getElementById('launcher').style.display = 'none';
-                startXR();
-            } else {
-                alert("আপনার ব্রাউজার WebXR সাপোর্ট করছে না। Chrome ব্যবহার করুন।");
-            }
+    function startAR() {
+        if (!modelUrl) return alert("Model URL not found!");
+
+        // Requesting Motion Sensor access (Essential for non-ARCore phones)
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            DeviceOrientationEvent.requestPermission()
+                .then(permissionState => {
+                    if (permissionState === 'granted') {
+                        initScene();
+                    } else {
+                        alert("Sensor access denied!");
+                    }
+                })
+                .catch(console.error);
         } else {
-            alert("WebXR নট ফাউন্ড।");
+            initScene();
         }
     }
 
-    function startXR() {
-        // Native WebXR SLAM Engine (MyWebAR Style)
-        navigator.xr.requestSession('immersive-ar', { requiredFeatures: ['hit-test'] }).then((session) => {
-            const canvas = document.createElement('canvas');
-            const gl = canvas.getContext('webgl', { xrCompatible: true });
-            const renderer = new THREE.WebGLRenderer({ alpha: true, preserveDrawingBuffer: true, canvas: canvas, context: gl });
-            renderer.autoClear = false;
+    function initScene() {
+        document.getElementById('overlay').style.display = 'none';
+        document.getElementById('instructions').style.display = 'block';
 
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera();
-            const loader = new THREE.GLTFLoader();
+        // Direct Camera Injection without SLAM dependency
+        const sceneHtml = `
+            <a-scene embedded vr-mode-ui="enabled: false" arjs="sourceType: webcam; debugUIEnabled: false;">
+                <a-assets>
+                    <a-asset-item id="model" src="${modelUrl}"></a-asset-item>
+                </a-assets>
 
-            // Lighting
-            scene.add(new THREE.AmbientLight(0xffffff, 1));
-            const light = new THREE.DirectionalLight(0xffffff, 0.8);
-            light.position.set(10, 10, 10);
-            scene.add(light);
+                <a-entity position="0 0 -4">
+                    <a-entity gltf-model="#model" scale="1 1 1" rotation="0 45 0"></a-entity>
+                </a-entity>
 
-            session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
-
-            session.requestReferenceSpace('viewer').then((refSpace) => {
-                session.requestHitTestSource({ space: refSpace }).then((hitTestSource) => {
-                    session.requestReferenceSpace('local').then((localSpace) => {
-                        
-                        // Load model
-                        loader.load(modelUrl, (gltf) => {
-                            const model = gltf.scene;
-                            model.visible = false;
-                            scene.add(model);
-
-                            session.requestAnimationFrame(function onXRFrame(t, frame) {
-                                session.requestAnimationFrame(onXRFrame);
-                                const pose = frame.getViewerPose(localSpace);
-                                if (pose) {
-                                    const hitTestResults = frame.getHitTestResults(hitTestSource);
-                                    if (hitTestResults.length > 0) {
-                                        const hit = hitTestResults[0];
-                                        const pose = hit.getPose(localSpace);
-                                        model.visible = true;
-                                        model.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
-                                    }
-                                    renderer.render(scene, camera);
-                                }
-                            });
-                        });
-                    });
-                });
-            });
-        });
+                <a-entity light="type: ambient; intensity: 1.5;"></a-entity>
+                <a-entity light="type: directional; intensity: 1;" position="1 2 1"></a-entity>
+                
+                <a-camera look-controls="enabled: true; magicWindowTrackingEnabled: true;"></a-camera>
+            </a-scene>
+        `;
+        document.body.insertAdjacentHTML('beforeend', sceneHtml);
     }
 </script>
 </body>
-            </html>
-            
+</html>
