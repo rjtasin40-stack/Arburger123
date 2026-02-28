@@ -3,124 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Permanent Cloud AR Editor</title>
-    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <title>Model Viewer Editor - Google Cloud Edition</title>
     
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@loaders.gl/gltf@3.4.4/dist/dist.min.js"></script>
+
     <style>
-        :root { --blue: #007aff; --bg: #050505; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; }
-        .admin-panel { max-width: 500px; margin: 40px auto; padding: 30px; background: #111; border-radius: 20px; border: 1px solid #333; }
-        input, select { width: 100%; padding: 12px; margin: 8px 0; background: #222; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 15px; background: var(--blue); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 15px; }
-        #output-section { display: none; margin-top: 20px; padding: 15px; background: #000; border: 1px dashed var(--blue); border-radius: 12px; }
-        
-        /* Model Viewer Style */
-        #viewer-container { display: none; width: 100%; height: 100vh; position: fixed; inset: 0; background: #000; z-index: 1000; }
-        .back-btn { position: absolute; top: 20px; left: 20px; z-index: 1001; background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px 20px; border-radius: 20px; }
+        :root {
+            --editor-bg: #f5f5f5;
+            --sidebar-bg: #ffffff;
+            --google-blue: #4285f4;
+            --border-color: #dadce0;
+        }
+
+        body {
+            margin: 0; font-family: 'Roboto', sans-serif;
+            display: flex; height: 100vh; background-color: var(--editor-bg);
+        }
+
+        /* Sidebar - Google Style */
+        .sidebar {
+            width: 320px; background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column; z-index: 10;
+        }
+
+        .header {
+            padding: 16px; border-bottom: 1px solid var(--border-color);
+            font-size: 18px; font-weight: 500; display: flex; align-items: center;
+        }
+
+        .section {
+            padding: 20px; border-bottom: 1px solid var(--border-color);
+            overflow-y: auto;
+        }
+
+        .section-title {
+            font-size: 12px; font-weight: 700; color: #70757a;
+            text-transform: uppercase; margin-bottom: 15px;
+        }
+
+        /* Controls Style */
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-size: 13px; margin-bottom: 5px; color: #3c4043; }
+        input[type="range"] { width: 100%; margin: 10px 0; cursor: pointer; }
+        input[type="text"], select {
+            width: 100%; padding: 8px; border: 1px solid var(--border-color);
+            border-radius: 4px; box-sizing: border-box;
+        }
+
+        /* Preview Window */
+        .preview-container {
+            flex: 1; position: relative; display: flex;
+            align-items: center; justify-content: center;
+        }
+
+        model-viewer {
+            width: 100%; height: 100%;
+            background-image: linear-gradient(45deg, #eee 25%, transparent 25%), 
+                              linear-gradient(-45deg, #eee 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #eee 75%), 
+                              linear-gradient(-45deg, transparent 75%, #eee 75%);
+            background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+
+        /* Action Buttons */
+        .footer { padding: 16px; background: #fff; border-top: 1px solid var(--border-color); }
+        .btn-primary {
+            width: 100%; background: var(--google-blue); color: white;
+            border: none; padding: 12px; border-radius: 4px;
+            font-weight: 500; cursor: pointer; transition: 0.2s;
+        }
+        .btn-primary:hover { background: #3367d6; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+
+        /* Status Overlay */
+        #loading-overlay {
+            position: fixed; inset: 0; background: rgba(255,255,255,0.8);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
     </style>
 </head>
 <body>
 
-<div id="setup-ui">
-    <div class="admin-panel">
-        <h2 style="color:var(--blue); margin-top:0;">Permanent AR Publisher</h2>
-        <p style="font-size: 13px; opacity: 0.6;">এটি অটোমেটিক ক্লাউড সার্ভারে সেভ করে রাখবে।</p>
-        
-        <label>প্রজেক্টের নাম:</label>
-        <input type="text" id="p-title" placeholder="যেমন: My Furniture">
-        
-        <label>মডেল ফাইল (.glb):</label>
-        <input type="file" id="p-file" accept=".glb">
+    <div id="loading-overlay">⏳ Processing Cloud Upload...</div>
 
-        <label>শ্যাডো ইনটেনসিটি (Shadow):</label>
-        <select id="p-shadow">
-            <option value="0">None</option>
-            <option value="1" selected>Low</option>
-            <option value="2">High</option>
-        </select>
+    <div class="sidebar">
+        <div class="header">
+            <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" width="24" style="margin-right:10px;">
+            AR Editor Pro
+        </div>
 
-        <button class="btn" onclick="uploadAndSave()">Publish & Save to Cloud</button>
-        <div id="status" style="margin-top: 10px; font-size: 12px;"></div>
+        <div class="section">
+            <div class="section-title">1. Import Model</div>
+            <input type="file" id="file-input" accept=".glb, .gltf, .obj, .fbx">
+            <p style="font-size: 10px; color: #666; margin-top: 5px;">*Auto-converts all formats to GLB for AR</p>
+        </div>
 
-        <div id="output-section">
-            <p style="font-size: 13px; font-weight: bold;">স্থায়ী লিঙ্ক (এটি সেভ করে রাখুন):</p>
-            <span id="ar-url" style="font-size: 11px; color: var(--blue); word-break: break-all;"></span>
-            <button class="btn" style="background:#28a745" onclick="copyLink()">Copy Link</button>
+        <div class="section">
+            <div class="section-title">2. Lighting & Environment</div>
+            <div class="input-group">
+                <label>Exposure (<span id="exp-val">1.0</span>)</label>
+                <input type="range" id="exposure" min="0" max="2" step="0.1" value="1">
+            </div>
+            <div class="input-group">
+                <label>Shadow Intensity (<span id="sh-val">1.0</span>)</label>
+                <input type="range" id="shadow-intensity" min="0" max="2" step="0.1" value="1">
+            </div>
+            <div class="input-group">
+                <label>Shadow Softness</label>
+                <input type="range" id="shadow-softness" min="0" max="1" step="0.1" value="1">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">3. AR Configuration</div>
+            <label>Placement</label>
+            <select id="ar-placement">
+                <option value="floor">Floor (মেঝে)</option>
+                <option value="wall">Wall (দেয়াল)</option>
+            </select>
+            <div style="margin-top:10px;">
+                <input type="checkbox" id="auto-rotate" checked> <label style="display:inline;">Auto Rotate</label>
+            </div>
+        </div>
+
+        <div class="footer">
+            <input type="text" id="proj-name" placeholder="Project Name" style="margin-bottom:10px;">
+            <button class="btn-primary" onclick="uploadToCloud()">GENERATE CLOUD LINK</button>
         </div>
     </div>
-</div>
 
-<div id="viewer-container">
-    <button class="back-btn" onclick="location.reload()">← Create New</button>
-    <model-viewer id="main-viewer" 
-        src="" 
-        ar 
-        ar-modes="webxr scene-viewer quick-look" 
-        camera-controls 
-        auto-rotate 
-        shadow-intensity="1" 
-        ar-placement="floor"
-        style="width: 100%; height: 100%;">
-    </model-viewer>
-</div>
+    <div class="preview-container">
+        <model-viewer id="main-viewer" 
+            camera-controls touch-action="pan-y" 
+            ar ar-modes="webxr scene-viewer quick-look" 
+            src="" shadow-intensity="1" exposure="1">
+            <button slot="ar-button" style="display:none;"></button>
+        </model-viewer>
+    </div>
 
-<script>
-    const CLOUD_NAME = "dgn3gfiaf"; 
-    const UPLOAD_PRESET = "my_ar_preset"; 
+    <script>
+        const CLOUD_ID = "dgn3gfiaf"; 
+        const PRESET = "my_ar_preset"; 
+        const mv = document.getElementById('main-viewer');
 
-    async function uploadAndSave() {
-        const file = document.getElementById('p-file').files[0];
-        const title = document.getElementById('p-title').value;
-        const shadow = document.getElementById('p-shadow').value;
-        const status = document.getElementById('status');
-
-        if(!file || !title) return alert("Please fill all fields!");
-
-        status.innerHTML = "⏳ ক্লাউড সার্ভারে সেভ হচ্ছে...";
-        
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', UPLOAD_PRESET);
-
-        try {
-            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
-                method: 'POST', body: formData
-            });
-            const data = await res.json();
-            
-            if(data.secure_url) {
-                // সব সেটিংস ইউআরএল লিঙ্কে সেভ করে রাখা হচ্ছে
-                const finalLink = window.location.origin + window.location.pathname + 
-                                  "?model=" + encodeURIComponent(data.secure_url) + 
-                                  "&sh=" + shadow + 
-                                  "&name=" + encodeURIComponent(title);
-                
-                status.innerHTML = "<b style='color:#28a745'>✅ সেভ করা হয়েছে!</b>";
-                document.getElementById('output-section').style.display = "block";
-                document.getElementById('ar-url').innerText = finalLink;
+        // File Handler - Supports GLB, OBJ, FBX via URL (Simple Preview)
+        document.getElementById('file-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                mv.src = url;
             }
-        } catch(e) { status.innerText = "❌ সেভ করতে ব্যর্থ হয়েছে।"; }
-    }
+        });
 
-    function copyLink() {
-        navigator.clipboard.writeText(document.getElementById('ar-url').innerText);
-        alert("Link Copied!");
-    }
+        // Real-time Controls
+        document.getElementById('exposure').oninput = (e) => {
+            mv.exposure = e.target.value;
+            document.getElementById('exp-val').innerText = e.target.value;
+        };
+        document.getElementById('shadow-intensity').oninput = (e) => {
+            mv.shadowIntensity = e.target.value;
+            document.getElementById('sh-val').innerText = e.target.value;
+        };
+        document.getElementById('shadow-softness').oninput = (e) => mv.shadowSoftness = e.target.value;
+        document.getElementById('auto-rotate').onchange = (e) => mv.autoRotate = e.target.checked;
 
-    // ক্লাউড থেকে সেভ করা ডাটা লোড করা
-    const params = new URLSearchParams(window.location.search);
-    const savedModel = params.get('model');
-    const savedShadow = params.get('sh');
+        // Cloud Upload & Save Logic
+        async function uploadToCloud() {
+            const file = document.getElementById('file-input').files[0];
+            const name = document.getElementById('proj-name').value;
+            if(!file || !name) return alert("ফাইল এবং প্রজেক্টের নাম দিন!");
 
-    if(savedModel) {
-        document.getElementById('setup-ui').style.display = 'none';
-        document.getElementById('viewer-container').style.display = 'block';
-        
-        const viewer = document.getElementById('main-viewer');
-        viewer.src = savedModel;
-        viewer.setAttribute('shadow-intensity', savedShadow || "1");
-    }
-</script>
+            document.getElementById('loading-overlay').style.display = 'flex';
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', PRESET);
+
+            try {
+                const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_ID}/auto/upload`, {
+                    method: 'POST', body: formData
+                });
+                const data = await res.json();
+
+                if(data.secure_url) {
+                    // All Settings Saved in URL
+                    const settings = `&exp=${mv.exposure}&shI=${mv.shadowIntensity}&shS=${mv.shadowSoftness}&arP=${document.getElementById('ar-placement').value}&rot=${mv.autoRotate}`;
+                    const finalLink = window.location.origin + window.location.pathname + "?v=" + encodeURIComponent(data.secure_url) + "&n=" + encodeURIComponent(name) + settings;
+                    
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    prompt("সাফল্য! আপনার স্থায়ী ক্লাউড লিঙ্কটি কপি করুন:", finalLink);
+                }
+            } catch (e) {
+                alert("Upload failed!");
+                document.getElementById('loading-overlay').style.display = 'none';
+            }
+        }
+
+        // View Mode Handler
+        const urlParams = new URLSearchParams(window.location.search);
+        if(urlParams.has('v')) {
+            document.querySelector('.sidebar').style.display = 'none';
+            mv.src = decodeURIComponent(urlParams.get('v'));
+            mv.exposure = urlParams.get('exp');
+            mv.shadowIntensity = urlParams.get('shI');
+            mv.shadowSoftness = urlParams.get('shS');
+            mv.arPlacement = urlParams.get('arP');
+            mv.autoRotate = urlParams.get('rot') === 'true';
+            
+            // Show AR Button only in view mode
+            const arBtn = document.createElement('button');
+            arBtn.innerText = "View in AR";
+            arBtn.style = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); padding:15px 30px; background:#4285f4; color:white; border:none; border-radius:30px; font-weight:bold; z-index:1000;";
+            arBtn.onclick = () => mv.activateAR();
+            document.body.appendChild(arBtn);
+        }
+    </script>
 </body>
     </html>
     
