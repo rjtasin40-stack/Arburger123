@@ -2,77 +2,125 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Universal WebAR - Final Fix</title>
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permanent Cloud AR Editor</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
     
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
-        #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #0a0a0b; z-index: 100; }
-        .box { background: #161618; padding: 40px; border-radius: 25px; text-align: center; border: 1px solid #333; width: 80%; max-width: 350px; }
-        .btn { background: #007aff; color: white; padding: 20px; border: none; border-radius: 15px; font-weight: bold; width: 100%; font-size: 16px; cursor: pointer; box-shadow: 0 10px 20px rgba(0,122,255,0.3); }
-        #instructions { position: fixed; bottom: 20px; width: 100%; text-align: center; color: white; z-index: 10; display: none; }
-        #instructions p { background: rgba(0,0,0,0.7); display: inline-block; padding: 10px 20px; border-radius: 20px; font-size: 13px; }
+        :root { --blue: #007aff; --bg: #050505; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; }
+        .admin-panel { max-width: 500px; margin: 40px auto; padding: 30px; background: #111; border-radius: 20px; border: 1px solid #333; }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; background: #222; border: 1px solid #444; color: white; border-radius: 8px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 15px; background: var(--blue); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        #output-section { display: none; margin-top: 20px; padding: 15px; background: #000; border: 1px dashed var(--blue); border-radius: 12px; }
+        
+        /* Model Viewer Style */
+        #viewer-container { display: none; width: 100%; height: 100vh; position: fixed; inset: 0; background: #000; z-index: 1000; }
+        .back-btn { position: absolute; top: 20px; left: 20px; z-index: 1001; background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px 20px; border-radius: 20px; }
     </style>
 </head>
 <body>
 
-<div id="overlay">
-    <div class="box">
-        <h2 style="color:#007aff; margin-top:0;">AR Experience</h2>
-        <p style="color:#888; font-size:14px; margin-bottom:25px;">বাটনে ক্লিক করলে সরাসরি ক্যামেরা ওপেন হবে। কোনো ৩ডি ভাসমান প্রিভিউ আসবে না।</p>
-        <button class="btn" onclick="startAR()">START CAMERA</button>
+<div id="setup-ui">
+    <div class="admin-panel">
+        <h2 style="color:var(--blue); margin-top:0;">Permanent AR Publisher</h2>
+        <p style="font-size: 13px; opacity: 0.6;">এটি অটোমেটিক ক্লাউড সার্ভারে সেভ করে রাখবে।</p>
+        
+        <label>প্রজেক্টের নাম:</label>
+        <input type="text" id="p-title" placeholder="যেমন: My Furniture">
+        
+        <label>মডেল ফাইল (.glb):</label>
+        <input type="file" id="p-file" accept=".glb">
+
+        <label>শ্যাডো ইনটেনসিটি (Shadow):</label>
+        <select id="p-shadow">
+            <option value="0">None</option>
+            <option value="1" selected>Low</option>
+            <option value="2">High</option>
+        </select>
+
+        <button class="btn" onclick="uploadAndSave()">Publish & Save to Cloud</button>
+        <div id="status" style="margin-top: 10px; font-size: 12px;"></div>
+
+        <div id="output-section">
+            <p style="font-size: 13px; font-weight: bold;">স্থায়ী লিঙ্ক (এটি সেভ করে রাখুন):</p>
+            <span id="ar-url" style="font-size: 11px; color: var(--blue); word-break: break-all;"></span>
+            <button class="btn" style="background:#28a745" onclick="copyLink()">Copy Link</button>
+        </div>
     </div>
 </div>
 
-<div id="instructions"><p>ফোনটি চারপাশে ঘোরান মডেলটি দেখার জন্য</p></div>
+<div id="viewer-container">
+    <button class="back-btn" onclick="location.reload()">← Create New</button>
+    <model-viewer id="main-viewer" 
+        src="" 
+        ar 
+        ar-modes="webxr scene-viewer quick-look" 
+        camera-controls 
+        auto-rotate 
+        shadow-intensity="1" 
+        ar-placement="floor"
+        style="width: 100%; height: 100%;">
+    </model-viewer>
+</div>
 
 <script>
-    const params = new URLSearchParams(window.location.search);
-    const modelUrl = params.get('view');
+    const CLOUD_NAME = "dgn3gfiaf"; 
+    const UPLOAD_PRESET = "my_ar_preset"; 
 
-    function startAR() {
-        if (!modelUrl) return alert("Model URL not found!");
+    async function uploadAndSave() {
+        const file = document.getElementById('p-file').files[0];
+        const title = document.getElementById('p-title').value;
+        const shadow = document.getElementById('p-shadow').value;
+        const status = document.getElementById('status');
 
-        // Requesting Motion Sensor access (Essential for non-ARCore phones)
-        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-            DeviceOrientationEvent.requestPermission()
-                .then(permissionState => {
-                    if (permissionState === 'granted') {
-                        initScene();
-                    } else {
-                        alert("Sensor access denied!");
-                    }
-                })
-                .catch(console.error);
-        } else {
-            initScene();
-        }
+        if(!file || !title) return alert("Please fill all fields!");
+
+        status.innerHTML = "⏳ ক্লাউড সার্ভারে সেভ হচ্ছে...";
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', UPLOAD_PRESET);
+
+        try {
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+                method: 'POST', body: formData
+            });
+            const data = await res.json();
+            
+            if(data.secure_url) {
+                // সব সেটিংস ইউআরএল লিঙ্কে সেভ করে রাখা হচ্ছে
+                const finalLink = window.location.origin + window.location.pathname + 
+                                  "?model=" + encodeURIComponent(data.secure_url) + 
+                                  "&sh=" + shadow + 
+                                  "&name=" + encodeURIComponent(title);
+                
+                status.innerHTML = "<b style='color:#28a745'>✅ সেভ করা হয়েছে!</b>";
+                document.getElementById('output-section').style.display = "block";
+                document.getElementById('ar-url').innerText = finalLink;
+            }
+        } catch(e) { status.innerText = "❌ সেভ করতে ব্যর্থ হয়েছে।"; }
     }
 
-    function initScene() {
-        document.getElementById('overlay').style.display = 'none';
-        document.getElementById('instructions').style.display = 'block';
+    function copyLink() {
+        navigator.clipboard.writeText(document.getElementById('ar-url').innerText);
+        alert("Link Copied!");
+    }
 
-        // Direct Camera Injection without SLAM dependency
-        const sceneHtml = `
-            <a-scene embedded vr-mode-ui="enabled: false" arjs="sourceType: webcam; debugUIEnabled: false;">
-                <a-assets>
-                    <a-asset-item id="model" src="${modelUrl}"></a-asset-item>
-                </a-assets>
+    // ক্লাউড থেকে সেভ করা ডাটা লোড করা
+    const params = new URLSearchParams(window.location.search);
+    const savedModel = params.get('model');
+    const savedShadow = params.get('sh');
 
-                <a-entity position="0 0 -4">
-                    <a-entity gltf-model="#model" scale="1 1 1" rotation="0 45 0"></a-entity>
-                </a-entity>
-
-                <a-entity light="type: ambient; intensity: 1.5;"></a-entity>
-                <a-entity light="type: directional; intensity: 1;" position="1 2 1"></a-entity>
-                
-                <a-camera look-controls="enabled: true; magicWindowTrackingEnabled: true;"></a-camera>
-            </a-scene>
-        `;
-        document.body.insertAdjacentHTML('beforeend', sceneHtml);
+    if(savedModel) {
+        document.getElementById('setup-ui').style.display = 'none';
+        document.getElementById('viewer-container').style.display = 'block';
+        
+        const viewer = document.getElementById('main-viewer');
+        viewer.src = savedModel;
+        viewer.setAttribute('shadow-intensity', savedShadow || "1");
     }
 </script>
 </body>
-</html>
+    </html>
+    
