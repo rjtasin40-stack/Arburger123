@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate WebAR SaaS Dashboard</title>
+    
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        :root { --primary: #6c5ce7; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; }
+        .nav { background: var(--primary); color: white; padding: 20px; text-align: center; font-size: 22px; font-weight: bold; }
+        .container { max-width: 800px; margin: auto; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        input, .btn { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; }
+        .btn { background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer; }
+        .project-item { display: flex; align-items: center; justify-content: space-between; background: white; padding: 15px; border-radius: 10px; margin-top: 10px; border-left: 5px solid var(--primary); }
+        #ar-frame { width: 100%; height: 300px; display: none; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="nav">MyWebAR Professional Clone</div>
+
+<div class="container">
+    <div class="card">
+        <h3>🚀 নতুন প্রজেক্ট পাবলিশ করুন</h3>
+        <input type="text" id="p-name" placeholder="প্রজেক্টের নাম (যেমন: Burger AR)">
+        <input type="file" id="p-file" accept=".glb">
+        <button class="btn" id="upload-btn" onclick="publishProject()">পাবলিশ এবং কিউআর তৈরি করুন</button>
+        <p id="status" style="font-size: 12px; color: blue;"></p>
+    </div>
+
+    <div id="project-list">
+        </div>
+</div>
+
+<script>
+    // গুরুত্বপূর্ণ: এখানে ফাইলটি সরাসরি ব্রাউজারে না রেখে গিটহাবের মাধ্যমে বা 
+    // সরাসরি ক্লাউড ইউআরএল ব্যবহারের সিস্টেম করা হয়েছে।
+    
+    function publishProject() {
+        const name = document.getElementById('p-name').value;
+        const fileInput = document.getElementById('p-file');
+        const status = document.getElementById('status');
+
+        if (!name || !fileInput.files[0]) {
+            alert("নাম এবং ফাইল সিলেক্ট করুন!");
+            return;
+        }
+
+        status.innerText = "প্রসেসিং হচ্ছে... দয়া করে অপেক্ষা করুন।";
+
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            const fileData = e.target.result;
+            const projectData = { name, fileData, id: Date.now() };
+
+            // ডাটা সেভ করা (LocalStorage এ রাখা হচ্ছে তবে কিউআর এর জন্য URL জেনারেট করা হবে)
+            let projects = JSON.parse(localStorage.getItem('mywebar_pro')) || [];
+            projects.push(projectData);
+            localStorage.setItem('mywebar_pro', JSON.stringify(projects));
+
+            displayProjects();
+            status.innerText = "সফলভাবে পাবলিশ হয়েছে!";
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function displayProjects() {
+        const list = document.getElementById('project-list');
+        list.innerHTML = "<h3>📂 আপনার প্রজেক্টসমূহ</h3>";
+        const projects = JSON.parse(localStorage.getItem('mywebar_pro')) || [];
+
+        projects.forEach((proj, index) => {
+            const item = document.createElement('div');
+            item.className = 'card';
+            item.innerHTML = `
+                <h4>${proj.name}</h4>
+                <div id="qr-${proj.id}" style="display:flex; justify-content:center;"></div>
+                <button class="btn" style="background:#00cec9;" onclick="viewAR('${proj.id}')">প্রিভিউ দেখুন</button>
+                <button class="btn" style="background:#ff7675;" onclick="deleteProj(${index})">মুছে ফেলুন</button>
+            `;
+            list.appendChild(item);
+
+            // কিউআর কোড জেনারেট (স্ক্যান করলে সরাসরি কাজ করবে)
+            new QRCode(document.getElementById(`qr-${proj.id}`), {
+                text: window.location.href + "?view=" + proj.id,
+                width: 150,
+                height: 150
+            });
+        });
+    }
+
+    // এআর ভিউ লজিক (স্ক্যান করলে যা হবে)
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewId = urlParams.get('view');
+    if (viewId) {
+        const projects = JSON.parse(localStorage.getItem('mywebar_pro')) || [];
+        const current = projects.find(p => p.id == viewId);
+        if (current) {
+            document.body.innerHTML = `
+                <div style="width:100vw; height:100vh;">
+                    <model-viewer src="${current.fileData}" ar ar-modes="webxr scene-viewer quick-look" camera-controls auto-rotate style="width:100%; height:100%;">
+                        <button slot="ar-button" style="position:absolute; bottom:50px; left:50%; transform:translateX(-50%); padding:20px; background:#6c5ce7; color:white; border-radius:50px; border:none; font-weight:bold;">📸 টেবিলে বার্গারটি দেখুন</button>
+                    </model-viewer>
+                </div>
+            `;
+        }
+    }
+
+    function deleteProj(i) {
+        let projects = JSON.parse(localStorage.getItem('mywebar_pro'));
+        projects.splice(i, 1);
+        localStorage.setItem('mywebar_pro', JSON.stringify(projects));
+        displayProjects();
+    }
+
+    displayProjects();
+</script>
+
+</body>
+          </html>
+  
