@@ -3,52 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyWebAR Style Cloud Engine</title>
+    <title>Universal WebAR Pro - Fixed QR</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     
     <style>
         :root { --accent: #007aff; --bg: #050505; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; overflow: hidden; }
-        .admin-box { max-width: 450px; margin: 50px auto; padding: 30px; background: #111; border-radius: 20px; border: 1px solid #333; text-align: center; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; text-align: center; }
+        .admin-box { max-width: 450px; margin: 40px auto; padding: 30px; background: #111; border-radius: 20px; border: 1px solid #333; }
         input { width: 100%; padding: 15px; margin: 10px 0; background: #222; border: 1px solid #444; color: white; border-radius: 10px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 18px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; }
-        #qr-wrap { display: none; margin-top: 20px; background: white; padding: 20px; border-radius: 15px; }
-        .ar-overlay { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 999; }
+        .btn { width: 100%; padding: 18px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        #qr-wrap { display: none; margin-top: 25px; background: white; padding: 25px; border-radius: 15px; color: black; }
+        #qrcode img { margin: 0 auto; border: 10px solid white; }
     </style>
 </head>
 <body>
 
 <div id="setup-ui">
     <div class="admin-box">
-        <h2 style="color:var(--accent)">MyWebAR Pro Clone</h2>
-        <p style="font-size: 14px; opacity: 0.7;">Upload .glb to see magic in Camera</p>
-        
+        <h2 style="color:var(--accent)">WebAR Cloud PRO</h2>
         <input type="text" id="pname" placeholder="Project Name">
         <input type="file" id="pfile" accept=".glb">
-        
-        <button class="btn" onclick="startPublish()">Publish & Launch</button>
-        <div id="status" style="margin-top: 10px; font-size: 14px;"></div>
+        <button class="btn" onclick="startPublish()">Publish & Get QR</button>
+        <div id="status" style="margin-top: 15px; font-size: 14px; color: #aaa;">Ready to upload</div>
 
         <div id="qr-wrap">
+            <p style="font-weight:bold; margin-bottom:10px;">Scan to View AR</p>
             <div id="qrcode" style="display:flex; justify-content:center;"></div>
-            <button class="btn" style="background:#28a745; margin-top:10px;" onclick="downloadQR()">Save QR Code</button>
+            <button class="btn" style="background:#28a745; margin-top:20px;" onclick="downloadQR()">Download QR Image</button>
         </div>
     </div>
 </div>
 
 <script>
-    const CLOUD_NAME = "dgn3gfiaf"; //
-    const PRESET = "my_ar_preset"; //
+    const CLOUD_NAME = "dgn3gfiaf"; 
+    const PRESET = "my_ar_preset"; 
 
     async function startPublish() {
         const file = document.getElementById('pfile').files[0];
         const name = document.getElementById('pname').value;
         const status = document.getElementById('status');
-        if(!file || !name) return alert("Please select file and name");
+        
+        if(!file || !name) return alert("Please enter name and select a .glb file");
 
-        status.innerText = "⏳ Connecting to Cloud...";
+        status.innerText = "⏳ Uploading to Cloud... Please wait.";
         const formData = new FormData();
         formData.append('file', file);
         formData.append('upload_preset', PRESET);
@@ -58,61 +57,66 @@
                 method: 'POST', body: formData
             });
             const data = await res.json();
+            
             if(data.secure_url) {
-                const finalLink = window.location.origin + window.location.pathname + "?view=" + encodeURIComponent(data.secure_url);
-                status.innerHTML = "<b style='color:#28a745'>🚀 Published!</b>";
+                // Creating the FINAL URL carefully
+                const currentUrl = window.location.href.split('?')[0];
+                const finalLink = currentUrl + "?view=" + encodeURIComponent(data.secure_url);
+                
+                status.innerHTML = "<b style='color:#28a745'>✅ Upload Successful!</b>";
                 document.getElementById('qr-wrap').style.display = "block";
+                
+                // FIXED QR GENERATOR
                 const qrDiv = document.getElementById('qrcode');
-                qrDiv.innerHTML = "";
-                new QRCode(qrDiv, { text: finalLink, width: 200, height: 200 });
+                qrDiv.innerHTML = ""; // Clear old QR
+                new QRCode(qrDiv, {
+                    text: finalLink,
+                    width: 220,
+                    height: 220,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            } else {
+                status.innerText = "❌ Upload Failed. Check Cloudinary settings.";
             }
-        } catch(e) { status.innerText = "❌ Upload Failed"; }
+        } catch(e) { 
+            status.innerText = "❌ Server Error. Try again."; 
+        }
     }
 
     function downloadQR() {
-        const canvas = document.querySelector('#qrcode canvas');
+        const qrImg = document.querySelector('#qrcode img');
+        if(!qrImg) return alert("Generate QR first!");
         const link = document.createElement('a');
-        link.download = 'mywebar-qr.png';
-        link.href = canvas.toDataURL();
+        link.download = 'ar-project-qr.png';
+        link.href = qrImg.src;
         link.click();
     }
 
-    // DIRECT CAMERA AR LOGIC (No App Required)
+    // AR VIEWER ENGINE
     const urlParams = new URLSearchParams(window.location.search);
     const modelUrl = urlParams.get('view');
 
     if(modelUrl) {
         document.getElementById('setup-ui').style.display = 'none';
-        document.body.style.backgroundColor = "transparent";
-        
-        // Creating A-Frame Scene for Direct Camera Access
-        const scene = `
+        document.body.innerHTML = `
             <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
                 <a-assets>
                     <a-asset-item id="model" src="${modelUrl}"></a-asset-item>
                 </a-assets>
-                
                 <a-marker preset="hiro">
-                    <a-entity 
-                        gltf-model="#model" 
-                        scale="0.5 0.5 0.5" 
-                        position="0 0 0"
-                        rotation="0 0 0"
-                        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
-                    </a-entity>
+                    <a-entity gltf-model="#model" scale="1 1 1" position="0 0 0" rotation="0 0 0"></a-entity>
                 </a-marker>
-                
                 <a-entity camera></a-entity>
             </a-scene>
-            <div class="ar-overlay">
-                <p style="background:rgba(0,0,0,0.7); padding:10px 20px; border-radius:30px; font-size:14px;">
-                    Point Camera at Hiro Marker or Surface
+            <div style="position:fixed; bottom:20px; width:100%; text-align:center; z-index:999;">
+                <p style="background:rgba(0,0,0,0.8); display:inline-block; padding:10px 20px; border-radius:20px; font-size:12px;">
+                    Point camera at 'HIRO' marker to see 3D model.
                 </p>
             </div>
         `;
-        document.body.innerHTML = scene;
     }
 </script>
 </body>
-        </html>
-        
+</html>
