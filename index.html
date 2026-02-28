@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal WebAR Pro - Fixed QR</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <title>WebAR Link Engine Pro</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     
     <style>
         :root { --accent: #007aff; --bg: #050505; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; text-align: center; }
-        .admin-box { max-width: 450px; margin: 40px auto; padding: 30px; background: #111; border-radius: 20px; border: 1px solid #333; }
-        input { width: 100%; padding: 15px; margin: 10px 0; background: #222; border: 1px solid #444; color: white; border-radius: 10px; box-sizing: border-box; }
+        .admin-box { max-width: 450px; margin: 50px auto; padding: 30px; background: #111; border-radius: 20px; border: 1px solid #333; }
+        input { width: 100%; padding: 15px; margin: 10px 0; background: #222; border: 1px solid #444; color: white; border-radius: 10px; box-sizing: border-box; outline: none; }
         .btn { width: 100%; padding: 18px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
-        #qr-wrap { display: none; margin-top: 25px; background: white; padding: 25px; border-radius: 15px; color: black; }
-        #qrcode img { margin: 0 auto; border: 10px solid white; }
+        #link-wrap { display: none; margin-top: 25px; padding: 20px; background: #1c1c1e; border-radius: 15px; border: 1px dashed var(--accent); }
+        .copy-btn { background: #28a745; margin-top: 10px; }
+        #ar-link { color: var(--accent); word-break: break-all; font-size: 14px; display: block; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -23,15 +23,18 @@
 <div id="setup-ui">
     <div class="admin-box">
         <h2 style="color:var(--accent)">WebAR Cloud PRO</h2>
+        <p style="font-size: 13px; opacity: 0.6;">Upload & Generate Direct AR Link</p>
+        
         <input type="text" id="pname" placeholder="Project Name">
         <input type="file" id="pfile" accept=".glb">
-        <button class="btn" onclick="startPublish()">Publish & Get QR</button>
-        <div id="status" style="margin-top: 15px; font-size: 14px; color: #aaa;">Ready to upload</div>
+        
+        <button class="btn" onclick="startPublish()">Generate AR Link</button>
+        <div id="status" style="margin-top: 15px; font-size: 13px;">Ready</div>
 
-        <div id="qr-wrap">
-            <p style="font-weight:bold; margin-bottom:10px;">Scan to View AR</p>
-            <div id="qrcode" style="display:flex; justify-content:center;"></div>
-            <button class="btn" style="background:#28a745; margin-top:20px;" onclick="downloadQR()">Download QR Image</button>
+        <div id="link-wrap">
+            <p style="font-weight:bold; margin-bottom:5px;">Your AR Project Link:</p>
+            <span id="ar-link"></span>
+            <button class="btn copy-btn" onclick="copyLink()">Copy Link</button>
         </div>
     </div>
 </div>
@@ -45,9 +48,9 @@
         const name = document.getElementById('pname').value;
         const status = document.getElementById('status');
         
-        if(!file || !name) return alert("Please enter name and select a .glb file");
+        if(!file || !name) return alert("Please enter name and select file");
 
-        status.innerText = "⏳ Uploading to Cloud... Please wait.";
+        status.innerText = "⏳ Uploading to Cloud Server...";
         const formData = new FormData();
         formData.append('file', file);
         formData.append('upload_preset', PRESET);
@@ -59,42 +62,23 @@
             const data = await res.json();
             
             if(data.secure_url) {
-                // Creating the FINAL URL carefully
                 const currentUrl = window.location.href.split('?')[0];
                 const finalLink = currentUrl + "?view=" + encodeURIComponent(data.secure_url);
                 
-                status.innerHTML = "<b style='color:#28a745'>✅ Upload Successful!</b>";
-                document.getElementById('qr-wrap').style.display = "block";
-                
-                // FIXED QR GENERATOR
-                const qrDiv = document.getElementById('qrcode');
-                qrDiv.innerHTML = ""; // Clear old QR
-                new QRCode(qrDiv, {
-                    text: finalLink,
-                    width: 220,
-                    height: 220,
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.H
-                });
-            } else {
-                status.innerText = "❌ Upload Failed. Check Cloudinary settings.";
+                status.innerHTML = "<b style='color:#28a745'>✅ Success!</b>";
+                document.getElementById('link-wrap').style.display = "block";
+                document.getElementById('ar-link').innerText = finalLink;
             }
-        } catch(e) { 
-            status.innerText = "❌ Server Error. Try again."; 
-        }
+        } catch(e) { status.innerText = "❌ Connection Error"; }
     }
 
-    function downloadQR() {
-        const qrImg = document.querySelector('#qrcode img');
-        if(!qrImg) return alert("Generate QR first!");
-        const link = document.createElement('a');
-        link.download = 'ar-project-qr.png';
-        link.href = qrImg.src;
-        link.click();
+    function copyLink() {
+        const linkText = document.getElementById('ar-link').innerText;
+        navigator.clipboard.writeText(linkText);
+        alert("Link copied to clipboard!");
     }
 
-    // AR VIEWER ENGINE
+    // AR VIEWER ENGINE (No App Needed)
     const urlParams = new URLSearchParams(window.location.search);
     const modelUrl = urlParams.get('view');
 
@@ -102,17 +86,15 @@
         document.getElementById('setup-ui').style.display = 'none';
         document.body.innerHTML = `
             <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
-                <a-assets>
-                    <a-asset-item id="model" src="${modelUrl}"></a-asset-item>
-                </a-assets>
+                <a-assets><a-asset-item id="model" src="${modelUrl}"></a-asset-item></a-assets>
                 <a-marker preset="hiro">
-                    <a-entity gltf-model="#model" scale="1 1 1" position="0 0 0" rotation="0 0 0"></a-entity>
+                    <a-entity gltf-model="#model" scale="1 1 1" position="0 0 0" animation="property: rotation; to: 0 360 0; loop: true; dur: 10000"></a-entity>
                 </a-marker>
                 <a-entity camera></a-entity>
             </a-scene>
             <div style="position:fixed; bottom:20px; width:100%; text-align:center; z-index:999;">
-                <p style="background:rgba(0,0,0,0.8); display:inline-block; padding:10px 20px; border-radius:20px; font-size:12px;">
-                    Point camera at 'HIRO' marker to see 3D model.
+                <p style="background:rgba(0,0,0,0.8); display:inline-block; padding:10px 20px; border-radius:20px; font-size:12px; color:white;">
+                    Point camera at 'HIRO' marker
                 </p>
             </div>
         `;
