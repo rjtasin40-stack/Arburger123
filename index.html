@@ -3,257 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAR Premium Cloud Dashboard</title>
+    <title>MyWebAR Style Cloud Engine</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    
     <style>
-        :root {
-            --primary: #0a0a0b; /* Deep Premium Black */
-            --accent: #007aff;  /* Premium Blue */
-            --bg: #050505;
-            --card-bg: #111112;
-            --text: #ffffff;
-            --secondary-text: #b3b3b3;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 20px;
-        }
-
-        .header {
-            padding: 20px;
-            text-align: left;
-            border-bottom: 1px solid #333;
-            margin-bottom: 30px;
-        }
-
-        .header h1 { font-size: 24px; margin: 0; letter-spacing: 1px; }
-
-        .container { max-width: 900px; margin: auto; }
-
-        .card {
-            background: var(--card-bg);
-            padding: 30px;
-            border-radius: 20px;
-            border: 1px solid #222;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            margin-bottom: 30px;
-        }
-
-        h2 { font-size: 18px; margin-bottom: 20px; color: var(--accent); text-transform: uppercase; }
-
-        input, select {
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 15px;
-            background: #1c1c1e;
-            border: 1px solid #333;
-            color: white;
-            border-radius: 10px;
-            box-sizing: border-box;
-            outline: none;
-        }
-
-        .toggle-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 15px;
-            padding: 10px;
-            background: #1c1c1e;
-            border-radius: 10px;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 18px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 16px;
-            transition: 0.3s;
-        }
-
-        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
-
-        #status { margin-top: 15px; font-size: 14px; text-align: center; }
-
-        /* Project List */
-        .project-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #1c1c1e;
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 10px;
-            border: 1px solid #333;
-        }
-
-        .qr-display-box {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
-            padding: 20px;
-            background: #fff;
-            border-radius: 15px;
-        }
-
-        #download-btn {
-            margin-top: 10px;
-            background: #28a745;
-            display: none;
-        }
+        :root { --accent: #007aff; --bg: #050505; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; overflow: hidden; }
+        .admin-box { max-width: 450px; margin: 50px auto; padding: 30px; background: #111; border-radius: 20px; border: 1px solid #333; text-align: center; }
+        input { width: 100%; padding: 15px; margin: 10px 0; background: #222; border: 1px solid #444; color: white; border-radius: 10px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 18px; background: var(--accent); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        #qr-wrap { display: none; margin-top: 20px; background: white; padding: 20px; border-radius: 15px; }
+        .ar-overlay { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 999; }
     </style>
 </head>
 <body>
 
-<div id="dashboard-ui">
-    <div class="header">
-        <h1>WebAR Cloud <span style="color:var(--accent)">PRO</span></h1>
-    </div>
+<div id="setup-ui">
+    <div class="admin-box">
+        <h2 style="color:var(--accent)">MyWebAR Pro Clone</h2>
+        <p style="font-size: 14px; opacity: 0.7;">Upload .glb to see magic in Camera</p>
+        
+        <input type="text" id="pname" placeholder="Project Name">
+        <input type="file" id="pfile" accept=".glb">
+        
+        <button class="btn" onclick="startPublish()">Publish & Launch</button>
+        <div id="status" style="margin-top: 10px; font-size: 14px;"></div>
 
-    <div class="container">
-        <div class="card">
-            <h2>1. Create New Project</h2>
-            <input type="text" id="proj-name" placeholder="Project Name (e.g., Luxury Watch)">
-            <input type="file" id="proj-file" accept=".glb">
-            
-            <div class="toggle-container">
-                <span>Disable Model Zoom</span>
-                <input type="checkbox" id="disable-zoom" style="width: 20px; margin: 0;">
-            </div>
-
-            <button class="btn" onclick="uploadToCloud()">Publish & Generate QR</button>
-            <div id="status">Ready to upload</div>
-        </div>
-
-        <div class="card" id="qr-section" style="display:none;">
-            <h2 style="color:#fff">2. Project QR Code (Unlimited Scans)</h2>
-            <div id="qr-parent" style="background: white; padding: 20px; display: inline-block; border-radius: 10px;">
-                <div id="qrcode"></div>
-            </div>
-            <button class="btn" id="download-btn" onclick="downloadQR()">Download QR Code</button>
-        </div>
-
-        <div class="card">
-            <h2>3. Project History</h2>
-            <div id="project-list">
-                <p style="color:var(--secondary-text)">No projects published yet.</p>
-            </div>
+        <div id="qr-wrap">
+            <div id="qrcode" style="display:flex; justify-content:center;"></div>
+            <button class="btn" style="background:#28a745; margin-top:10px;" onclick="downloadQR()">Save QR Code</button>
         </div>
     </div>
 </div>
 
 <script>
-    // Cloudinary Credentials
-    const CLOUD_NAME = "dgn3gfiaf"; 
-    const API_KEY = "781113676476835"; 
-    const UPLOAD_PRESET = "my_ar_preset"; 
+    const CLOUD_NAME = "dgn3gfiaf"; //
+    const PRESET = "my_ar_preset"; //
 
-    async function uploadToCloud() {
-        const name = document.getElementById('proj-name').value;
-        const file = document.getElementById('proj-file').files[0];
-        const zoomDisabled = document.getElementById('disable-zoom').checked;
+    async function startPublish() {
+        const file = document.getElementById('pfile').files[0];
+        const name = document.getElementById('pname').value;
         const status = document.getElementById('status');
-        const qrSection = document.getElementById('qr-section');
+        if(!file || !name) return alert("Please select file and name");
 
-        if (!name || !file) {
-            alert("Please provide both Name and .glb File");
-            return;
-        }
-
-        status.innerHTML = "🚀 <span style='color:var(--accent)'>Uploading to Cloud Server...</span>";
-        
+        status.innerText = "⏳ Connecting to Cloud...";
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('upload_preset', UPLOAD_PRESET);
+        formData.append('upload_preset', PRESET);
 
         try {
-            const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
-                method: 'POST',
-                body: formData
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+                method: 'POST', body: formData
             });
-            const data = await response.json();
-
-            if (data.secure_url) {
-                const modelUrl = data.secure_url;
-                const finalUrl = window.location.origin + window.location.pathname + 
-                                 "?model=" + encodeURIComponent(modelUrl) + 
-                                 "&zoom=" + (zoomDisabled ? "off" : "on");
-
-                status.innerHTML = "✅ <span style='color:#28a745'>Published Successfully!</span>";
-                
-                // Show QR
-                qrSection.style.display = "block";
-                const qrcodeDiv = document.getElementById('qrcode');
-                qrcodeDiv.innerHTML = "";
-                new QRCode(qrcodeDiv, { text: finalUrl, width: 200, height: 200 });
-                document.getElementById('download-btn').style.display = "block";
-
-                // Add to List
-                addToHistory(name, finalUrl);
+            const data = await res.json();
+            if(data.secure_url) {
+                const finalLink = window.location.origin + window.location.pathname + "?view=" + encodeURIComponent(data.secure_url);
+                status.innerHTML = "<b style='color:#28a745'>🚀 Published!</b>";
+                document.getElementById('qr-wrap').style.display = "block";
+                const qrDiv = document.getElementById('qrcode');
+                qrDiv.innerHTML = "";
+                new QRCode(qrDiv, { text: finalLink, width: 200, height: 200 });
             }
-        } catch (err) {
-            status.innerHTML = "❌ <span style='color:red;'>Upload Failed!</span>";
-        }
-    }
-
-    function addToHistory(name, url) {
-        const list = document.getElementById('project-list');
-        if(list.innerText.includes("No projects")) list.innerHTML = "";
-        
-        const item = document.createElement('div');
-        item.className = 'project-item';
-        item.innerHTML = `<span>${name}</span><button class='btn' style='width:auto; padding:8px 15px;' onclick="window.open('${url}')">View</button>`;
-        list.prepend(item);
+        } catch(e) { status.innerText = "❌ Upload Failed"; }
     }
 
     function downloadQR() {
         const canvas = document.querySelector('#qrcode canvas');
         const link = document.createElement('a');
-        link.download = 'ar-project-qr.png';
+        link.download = 'mywebar-qr.png';
         link.href = canvas.toDataURL();
         link.click();
     }
 
-    // AR VIEW LOGIC
-    const params = new URLSearchParams(window.location.search);
-    const modelToShow = params.get('model');
-    const zoomMode = params.get('zoom');
+    // DIRECT CAMERA AR LOGIC (No App Required)
+    const urlParams = new URLSearchParams(window.location.search);
+    const modelUrl = urlParams.get('view');
 
-    if (modelToShow) {
-        document.getElementById('dashboard-ui').style.display = 'none';
-        const viewer = document.createElement('model-viewer');
-        viewer.setAttribute('src', modelToShow);
-        viewer.setAttribute('ar', '');
-        viewer.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
-        viewer.setAttribute('camera-controls', '');
-        viewer.setAttribute('auto-rotate', '');
-        viewer.style.width = "100vw";
-        viewer.style.height = "100vh";
-        viewer.style.backgroundColor = "#000";
-
-        if (zoomMode === "off") {
-            viewer.setAttribute('disable-zoom', '');
-        }
-
-        const arBtn = document.createElement('button');
-        arBtn.slot = "ar-button";
-        arBtn.innerHTML = "👋 View in Your Space";
-        arBtn.style = "position:absolute; bottom:50px; left:50%; transform:translateX(-50%); padding:20px 40px; background:#007aff; color:white; border:none; border-radius:50px; font-weight:bold; font-size:18px;";
+    if(modelUrl) {
+        document.getElementById('setup-ui').style.display = 'none';
+        document.body.style.backgroundColor = "transparent";
         
-        viewer.appendChild(arBtn);
-        document.body.appendChild(viewer);
+        // Creating A-Frame Scene for Direct Camera Access
+        const scene = `
+            <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+                <a-assets>
+                    <a-asset-item id="model" src="${modelUrl}"></a-asset-item>
+                </a-assets>
+                
+                <a-marker preset="hiro">
+                    <a-entity 
+                        gltf-model="#model" 
+                        scale="0.5 0.5 0.5" 
+                        position="0 0 0"
+                        rotation="0 0 0"
+                        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
+                    </a-entity>
+                </a-marker>
+                
+                <a-entity camera></a-entity>
+            </a-scene>
+            <div class="ar-overlay">
+                <p style="background:rgba(0,0,0,0.7); padding:10px 20px; border-radius:30px; font-size:14px;">
+                    Point Camera at Hiro Marker or Surface
+                </p>
+            </div>
+        `;
+        document.body.innerHTML = scene;
     }
 </script>
 </body>
-                    </html>
-                
+        </html>
+        
